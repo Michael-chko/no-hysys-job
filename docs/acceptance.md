@@ -31,9 +31,6 @@
 | 24 | После подтверждения рекомендации двойник по данным АСУ отмечает в журнале, изменился ли режим | `tests/test_gateway.py::test_execution_check_after_confirmation` | 9 |
 | 25 | Сигнал без уставок в словаре попадает в отчёт о приёме как незаполненный | `tests/test_gateway.py::test_every_simulator_signal_bound_and_unbound_reported` | 9 |
 
-Сверх ТЗ: адаптер Aspen HYSYS для заводской части — `tests/test_cores.py::test_hysys_*`
-(проверка на модели-заменителе; реальная связь — под Windows с лицензией HYSYS, `docs/hysys.md`).
-
 Сверх ТЗ: модель КРН участков газопроводов (Мирзоев, Иващенко, Маршаков, 2016) — `tests/test_scc.py`:
 архитектура 10–13–2 и деление 55 / 55 как в статье (`test_architecture_from_article`,
 `test_split_like_article`), классы риска рис. 4 (`test_risk_classes`), применимость по шурфам

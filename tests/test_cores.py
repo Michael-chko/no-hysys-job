@@ -1,6 +1,5 @@
-"""Этап 7: внешние расчётные ядра (М9), адаптер HYSYS, правило П12."""
+"""Этап 7: внешние расчётные ядра (М9), правило П12."""
 
-import copy
 import shutil
 
 import pandas as pd
@@ -11,7 +10,6 @@ from field_twin import config, rules, storage
 from field_twin.api import create_app
 from field_twin.cores import base
 from field_twin.cores.aerosim import AerosimCore
-from field_twin.cores.hysys import FakeBackend, HysysCore
 from field_twin.cores.stub import StubCore
 from field_twin.cores.tnavigator import TNavigatorCore
 from field_twin.cycle import CycleRunner, run_cycle
@@ -45,7 +43,7 @@ def test_registry_loads_stub_from_config():
     cores = base.load_cores(config.load_yaml("cores.yaml"))
     assert [c.name for c in cores] == ["stub"] and isinstance(cores[0], StubCore)
     all_cores = base.load_cores(config.load_yaml("cores.yaml"), only_enabled=False)
-    assert {c.name for c in all_cores} == {"stub", "aerosim", "tnavigator", "hysys"}
+    assert {c.name for c in all_cores} == {"stub", "aerosim", "tnavigator"}
 
 
 def test_stub_replaceable_without_code_change():
@@ -104,60 +102,3 @@ def test_cycle_survives_broken_core(ingested_db, tmp_path):
     shutil.copy(ingested_db, db)
     res = run_cycle(storage.connect(db), cores=[BrokenCore()], hydrate_model=False, chudin_model=False, log=False)
     assert res.core_results[0].status == "error"
-
-
-# ---- HYSYS ----
-
-def plant_model(v):
-    """Заменитель модели завода: СПГ ~ расход газа, мощность компрессоров ~ производительность."""
-    feed = v[("MaterialStreams", "Feed", "StdGasFlow")]
-    lng = feed * 0.00072 * 0.9          # м³/ч → т/ч, 90 % на сжижение
-    out = {("MaterialStreams", "LNG", "MassFlow"): lng, ("MaterialStreams", "NH3", "MassFlow"): 20.0,
-           ("MaterialStreams", "Urea", "MassFlow"): 35.0, ("MaterialStreams", "ПГ на сжижение", "MassFlow"): lng * 1.02}
-    for k in ("100", "101", "102", "104", "105", "106", "107"):
-        out[("EnergyStreams", f"Q-{k}", "HeatFlow")] = lng * 50.0
-    return out
-
-
-def hysys_settings(**rec):
-    s = copy.deepcopy(config.load_yaml("hysys.yaml"))
-    s["recommendations"]["specific_energy"].update(rec)
-    return s
-
-
-def test_hysys_sets_inputs_solves_and_reads(tmp_path):
-    fb = FakeBackend(plant_model)
-    core = HysysCore(backend=fb, settings=hysys_settings())
-    i = base.CoreInput(NOW, {"gathering.SEP-1.Q_sep": 300.0, "gathering.SEP-1.P_out": 7.2,
-                             "absorber.A-1.T_gas_absorber": -25.0})
-    r = core.calculate(i)
-    assert fb.opened == "C:/models/plant.hsc" and fb.solved == 1
-    assert fb.values[("MaterialStreams", "Feed", "StdGasFlow")] == 300000.0      # тыс. м³/ч → м³/ч
-    assert fb.values[("MaterialStreams", "Feed", "Pressure")] == pytest.approx(7200.0)
-    assert r.calculated["lng_t_h"] == pytest.approx(300000 * 0.00072 * 0.9)
-    assert r.calculated["specific_energy_kwh_t"] == pytest.approx(7 * 50.0)
-    assert r.recommendations == []     # базовое значение не задано
-
-
-@pytest.mark.parametrize("base_kwh,fires", [(345.0, False), (300.0, True)])
-def test_hysys_specific_energy_recommendation(base_kwh, fires):
-    core = HysysCore(backend=FakeBackend(plant_model), settings=hysys_settings(baseline_kwh_t=base_kwh, max_increase_pct=10))
-    r = core.calculate(base.CoreInput(NOW, {"gathering.SEP-1.Q_sep": 300.0}))
-    assert bool(r.recommendations) == fires
-    if fires:
-        rec = r.recommendations[0]
-        assert "компрессорами хладагента" in rec.message and rec.key == "hysys:specific_energy"
-        ev = rules.check_p12([r], config.thresholds(), NOW)
-        assert ev[0].recipient == "chief_engineer"
-
-
-def test_hysys_missing_inputs_counted():
-    r = HysysCore(backend=FakeBackend(plant_model), settings=hysys_settings()).calculate(
-        base.CoreInput(NOW, {"gathering.SEP-1.Q_sep": 300.0}))
-    assert r.calculated["missing_inputs"] == 2
-
-
-def test_hysys_com_backend_explains_platform():
-    core = HysysCore(settings=hysys_settings())
-    res = base.run_cores([core], base.CoreInput(NOW, {}))
-    assert res[0].status == "error" and ("Windows" in res[0].error or "HYSYS" in res[0].error)

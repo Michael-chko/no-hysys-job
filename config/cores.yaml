@@ -16,6 +16,3 @@ cores:
   - name: tnavigator
     class: field_twin.cores.tnavigator:TNavigatorCore
     enabled: false
-  - name: hysys
-    class: field_twin.cores.hysys:HysysCore
-    enabled: false              # Windows + лицензия Aspen HYSYS; настройки — config/hysys.yaml
