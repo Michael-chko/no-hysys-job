@@ -140,6 +140,14 @@ def test_pages_have_no_internet_dependencies(client):
     assert client.get("/web/../pyproject.toml").status_code == 404
 
 
+def test_screens_revalidated_not_cached(client):
+    # После обновления прототипа экраны на пульте не должны держать старые стили и скрипт из кэша.
+    for url in ("/operator", "/chief", "/web/app.js", "/web/style.css"):
+        r = client.get(url)
+        assert r.status_code == 200 and r.headers["cache-control"] == "no-cache", url
+        assert r.headers.get("etag"), url
+
+
 def test_realtime_playback_respects_speed(model, tmp_path):
     res = generate(tmp_path / "a", days=0.2, seed=2)
     pb = Playback(tmp_path / "rt.sqlite", [res.files["gathering"]], speed=60 * 60 * 20, cycle_minutes=60,

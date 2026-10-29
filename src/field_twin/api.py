@@ -79,20 +79,24 @@ def create_app(db_path: str | Path, config_dir: str | Path | None = None) -> Fas
                 "<p><a href='/operator'>Экран оператора пульта</a></p>"
                 "<p><a href='/chief'>Экран главного инженера</a></p></main></body></html>")
 
+    # Экраны и их файлы браузер сверяет с сервером при каждом открытии (ETag), чтобы после
+    # обновления прототипа на пульте не оставались старые стили и скрипт из кэша.
+    no_cache = {"Cache-Control": "no-cache"}
+
     @app.get("/operator")
     def operator():
-        return FileResponse(WEB / "operator.html", media_type="text/html; charset=utf-8")
+        return FileResponse(WEB / "operator.html", media_type="text/html; charset=utf-8", headers=no_cache)
 
     @app.get("/chief")
     def chief():
-        return FileResponse(WEB / "chief_engineer.html", media_type="text/html; charset=utf-8")
+        return FileResponse(WEB / "chief_engineer.html", media_type="text/html; charset=utf-8", headers=no_cache)
 
     @app.get("/web/{name}")
     def web(name: str):
         path = (WEB / name).resolve()
         if path.parent != WEB.resolve() or not path.is_file():
             raise HTTPException(404)
-        return FileResponse(path)
+        return FileResponse(path, headers=no_cache)
 
     @app.get("/alarm.wav")
     def alarm():

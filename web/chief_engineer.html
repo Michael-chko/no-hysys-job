@@ -10,18 +10,21 @@
 <header>
   <h1>Экран главного инженера</h1>
   <span class="now" id="now">…</span>
-  <span class="badge stale" id="conn"></span>
+  <span class="badge stale" id="conn" role="status" hidden></span>
   <span class="spacer"></span>
-  <button id="sound-toggle">Включить звук</button>
-  <a href="/operator">Экран оператора</a>
+  <span class="tools">
+    <button id="sound-toggle" type="button">Включить звук</button>
+    <button id="theme-toggle" type="button" class="secondary">Тема: как в системе</button>
+    <a href="/operator">Экран оператора</a>
+  </span>
 </header>
 <audio id="alarm-sound" src="/alarm.wav" preload="auto"></audio>
 <main>
   <section class="wide">
     <h2>Рекомендации и уведомления</h2>
-    <p class="muted">Рекомендации расчётных ядер (П12), ресурс оборудования и газопроводов (П2–П11),
+    <p class="note">Рекомендации расчётных ядер (П12), ресурс оборудования и газопроводов (П2–П11),
       расхождение моделей (П15), стык с заводом (П16). Решение принимает главный инженер и вводит его в АСУ.</p>
-    <div class="scroll"><table><tbody id="events"></tbody></table></div>
+    <div class="scroll"><table><thead><tr><th>Время</th><th>Источник, правило</th><th>Сообщение и решение</th></tr></thead><tbody id="events"></tbody></table></div>
   </section>
   <section>
     <h2>Основания на мерзлоте</h2>
